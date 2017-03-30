@@ -18,8 +18,7 @@
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
-
-#include "test_communication/msg/u_int32.hpp"
+#include "test_msgs/msg/u_int32.hpp"
 
 int main(int argc, char ** argv)
 {
@@ -29,7 +28,7 @@ int main(int argc, char ** argv)
   auto node = rclcpp::Node::make_shared("test_subscription_valid_data");
 
   auto callback =
-    [](const test_communication::msg::UInt32::SharedPtr received_message) -> void
+    [](const test_msgs::msg::UInt32::SharedPtr received_message) -> void
     {
       printf("received message #%u\n", received_message->data);
       if (received_message->data == 0) {
@@ -39,12 +38,12 @@ int main(int argc, char ** argv)
       }
     };
 
-  auto subscriber = node->create_subscription<test_communication::msg::UInt32>(
+  auto subscriber = node->create_subscription<test_msgs::msg::UInt32>(
     "test_subscription_valid_data", callback, rmw_qos_profile_default);
 
   rclcpp::WallRate message_rate(5);
   {
-    auto publisher = node->create_publisher<test_communication::msg::UInt32>(
+    auto publisher = node->create_publisher<test_msgs::msg::UInt32>(
       "test_subscription_valid_data", rmw_qos_profile_default);
 
     message_rate.sleep();
@@ -53,7 +52,7 @@ int main(int argc, char ** argv)
     // publish a few messages, all with data > 0
     while (rclcpp::ok() && index <= 5) {
       printf("publishing message #%u\n", index);
-      auto msg = std::make_shared<test_communication::msg::UInt32>();
+      auto msg = std::make_shared<test_msgs::msg::UInt32>();
       msg->data = index;
       publisher->publish(msg);
       ++index;

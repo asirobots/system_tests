@@ -13,36 +13,11 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-set(message_files
-  "msg/BoundedArrayNested.msg"
-  "msg/BoundedArrayPrimitives.msg"
-  "msg/Builtins.msg"
-  "msg/DynamicArrayNested.msg"
-  "msg/DynamicArrayPrimitives.msg"
-  "msg/Empty.msg"
-  "msg/Nested.msg"
-  "msg/Primitives.msg"
-  "msg/StaticArrayNested.msg"
-  "msg/StaticArrayPrimitives.msg"
-)
-set(other_message_files
-  "msg/FieldsWithSameType.msg"
-  "msg/UInt32.msg"
-)
-set(service_files
-  "srv/Empty.srv"
-  "srv/Primitives.srv"
-)
-rosidl_generate_interfaces(${PROJECT_NAME}
-  ${message_files}
-  ${other_message_files}
-  ${service_files}
-  DEPENDENCIES builtin_interfaces
-)
-
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(test_msgs REQUIRED)
 
   # get the rmw implementations ahead of time
   find_package(rmw_implementation_cmake REQUIRED)
@@ -50,6 +25,23 @@ if(BUILD_TESTING)
   foreach(rmw_implementation ${rmw_implementations2})
     find_package("${rmw_implementation}" REQUIRED)
   endforeach()
+
+  set(message_files
+    # "BoundedArrayNested.msg"
+    # "BoundedArrayPrimitives.msg"
+    # "Builtins.msg"
+    # "DynamicArrayNested.msg"
+    # "DynamicArrayPrimitives.msg"
+    # "Empty.msg"
+    "Nested.msg"
+    # "Primitives.msg"
+    # "StaticArrayNested.msg"
+    # "StaticArrayPrimitives.msg"
+  )
+  set(service_files
+    "Empty.srv"
+    "Primitives.srv"
+  )
 
   function(custom_test target with_message_argument)
     if(with_message_argument)
@@ -99,10 +91,11 @@ if(BUILD_TESTING)
 
   function(custom_executable target)
     add_executable(${target} ${ARGN})
-    rosidl_target_interfaces(${target}
-      ${PROJECT_NAME} "rosidl_typesupport_cpp")
     ament_target_dependencies(${target}
-      "rclcpp")
+      "rclcpp"
+      "test_msgs"
+    )
+
   endfunction()
 
   function(custom_test_c target)
@@ -116,11 +109,11 @@ if(BUILD_TESTING)
     target_link_libraries(${target}${target_suffix}
       ${_AMENT_EXPORT_ABSOLUTE_LIBRARIES}
       ${_AMENT_EXPORT_LIBRARY_TARGETS})
-    add_dependencies(${target}${target_suffix} ${PROJECT_NAME})
-    rosidl_target_interfaces(${target}${target_suffix}
-      ${PROJECT_NAME} "rosidl_typesupport_c")
+    # add_dependencies(${target}${target_suffix} ${PROJECT_NAME})
     ament_target_dependencies(${target}${target_suffix}
-      "rcl")
+      "rcl"
+      "test_msgs"
+    )
     set_tests_properties(
       ${target}${target_suffix}
       PROPERTIES REQUIRED_FILES "$<TARGET_FILE:${target}${target_suffix}>"
@@ -164,66 +157,79 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_BINARY_DIR}/test_publisher_subscriber${test_suffix}_$<CONFIG>.py"
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py"
         PYTHON_EXECUTABLE "${_PYTHON_EXECUTABLE}"
-        APPEND_ENV PYTHONPATH="${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py:${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}/../../rclpy"
+        # APPEND_ENV PYTHONPATH="${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py:${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}/../../rclpy"
         APPEND_LIBRARY_DIRS "${append_library_dirs}"
         TIMEOUT 15
         ${SKIP_TEST})
       set_tests_properties(
         test_publisher_subscriber${test_suffix}
-        PROPERTIES DEPENDS "test_publisher_cpp__${rmw_implementation1};test_subscriber_cpp__${rmw_implementation2}"
+        PROPERTIES REQUIRED FILES "test_publisher_cpp__${rmw_implementation1} test_subscriber_cpp__${rmw_implementation2}"
       )
     endforeach()
 
-    # test requester / replier
-    set(SKIP_TEST "")
+##
+#        "${target}${target_suffix}"
+#        COMMAND "$<TARGET_FILE:${target}>"
+#        TIMEOUT 15
+#        GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+#        APPEND_LIBRARY_DIRS "${append_library_dirs}"
+#        ENV
+#        RCL_ASSERT_RMW_ID_MATCHES=${rmw_implementation}
+#        RMW_IMPLEMENTATION=${rmw_implementation})
+#      set_tests_properties(
+#        "${target}${target_suffix}"
+#        PROPERTIES REQUIRED_FILES "$<TARGET_FILE:${target}>"
+##
+    # # test requester / replier
+    # set(SKIP_TEST "")
 
-    # TODO different vendors can't talk to each other right now
-    if(NOT rmw_implementation1 STREQUAL rmw_implementation2 AND
-      (NOT(rmw_implementation1 MATCHES "(.*)connext(.*)" AND rmw_implementation2 MATCHES "(.*)connext(.*)"))
-    )
-      set(SKIP_TEST "SKIP_TEST")
-    endif()
+    # # TODO different vendors can't talk to each other right now
+    # if(NOT rmw_implementation1 STREQUAL rmw_implementation2 AND
+    #   (NOT(rmw_implementation1 MATCHES "(.*)connext(.*)" AND rmw_implementation2 MATCHES "(.*)connext(.*)"))
+    # )
+    #   set(SKIP_TEST "SKIP_TEST")
+    # endif()
 
-    # TODO(mikaelarguedas) connext doesn't support C services for now
-    if((client_library1 STREQUAL "rclpy" OR client_library2 STREQUAL "rclpy") AND
-      (rmw_implementation1 MATCHES "(.*)connext(.*)" OR rmw_implementation2 MATCHES "(.*)connext(.*)")
-    )
-      set(SKIP_TEST "SKIP_TEST")
-    endif()
+    # # TODO(mikaelarguedas) connext doesn't support C services for now
+    # if((client_library1 STREQUAL "rclpy" OR client_library2 STREQUAL "rclpy") AND
+    #   (rmw_implementation1 MATCHES "(.*)connext(.*)" OR rmw_implementation2 MATCHES "(.*)connext(.*)")
+    # )
+    #   set(SKIP_TEST "SKIP_TEST")
+    # endif()
 
-    if(WIN32 AND client_library1 STREQUAL "rclcpp" AND client_library2 STREQUAL "rclpy")
-      set(SKIP_TEST "SKIP_TEST")
-    endif()
+    # if(WIN32 AND client_library1 STREQUAL "rclcpp" AND client_library2 STREQUAL "rclpy")
+    #   set(SKIP_TEST "SKIP_TEST")
+    # endif()
 
-    set(REQUESTER_RMW ${rmw_implementation1})
-    set(REPLIER_RMW ${rmw_implementation2})
-    foreach(service_file ${service_files})
-      get_filename_component(TEST_SERVICE_TYPE "${service_file}" NAME_WE)
-      set(test_suffix "__${TEST_SERVICE_TYPE}${suffix}")
-      configure_file(
-        test/test_requester_replier.py.in
-        test_requester_replier${test_suffix}.py.configured
-        @ONLY
-      )
-      file(GENERATE
-        OUTPUT "test_requester_replier${test_suffix}_$<CONFIG>.py"
-        INPUT "${CMAKE_CURRENT_BINARY_DIR}/test_requester_replier${test_suffix}.py.configured"
-      )
+    # set(REQUESTER_RMW ${rmw_implementation1})
+    # set(REPLIER_RMW ${rmw_implementation2})
+    # foreach(service_file ${service_files})
+    #   get_filename_component(TEST_SERVICE_TYPE "${service_file}" NAME_WE)
+    #   set(test_suffix "__${TEST_SERVICE_TYPE}${suffix}")
+    #   configure_file(
+    #     test/test_requester_replier.py.in
+    #     test_requester_replier${test_suffix}.py.configured
+    #     @ONLY
+    #   )
+    #   file(GENERATE
+    #     OUTPUT "test_requester_replier${test_suffix}_$<CONFIG>.py"
+    #     INPUT "${CMAKE_CURRENT_BINARY_DIR}/test_requester_replier${test_suffix}.py.configured"
+    #   )
 
-      ament_add_nose_test(test_requester_replier${test_suffix}
-        "${CMAKE_CURRENT_BINARY_DIR}/test_requester_replier${test_suffix}_$<CONFIG>.py"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py"
-        PYTHON_EXECUTABLE "${_PYTHON_EXECUTABLE}"
-        APPEND_ENV PYTHONPATH="${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py:${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}/../../rclpy"
-        APPEND_LIBRARY_DIRS "${append_library_dirs}"
-        TIMEOUT 30
-        ${SKIP_TEST})
-      set_tests_properties(
-        test_publisher_subscriber${test_suffix}
-        PROPERTIES DEPENDS
-          "test_requester_cpp__${rmw_implementation1};test_replier_cpp__${rmw_implementation2}"
-      )
-    endforeach()
+    #   ament_add_nose_test(test_requester_replier${test_suffix}
+    #     "${CMAKE_CURRENT_BINARY_DIR}/test_requester_replier${test_suffix}_$<CONFIG>.py"
+    #     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py"
+    #     PYTHON_EXECUTABLE "${_PYTHON_EXECUTABLE}"
+    #     APPEND_ENV PYTHONPATH="${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_py:${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}/../../rclpy"
+    #     APPEND_LIBRARY_DIRS "${append_library_dirs}"
+    #     TIMEOUT 30
+    #     ${SKIP_TEST})
+    #   set_tests_properties(
+    #     test_publisher_subscriber${test_suffix}
+    #     PROPERTIES DEPENDS
+    #       "test_requester_cpp__${rmw_implementation1};test_replier_cpp__${rmw_implementation2}"
+    #   )
+    # endforeach()
   endmacro()
 
   macro(configure_template _client_library1 _client_library2)
@@ -270,7 +276,7 @@ if(BUILD_TESTING)
   macro(multi_client_libraries)
     # TODO(mikaelarguedas) Aggregate available rcl from ament index ?
     set(client_libraries "")
-    list(APPEND client_libraries "rclpy")
+    # list(APPEND client_libraries "rclpy")
     list(APPEND client_libraries "rclcpp")
     foreach(client_library1 ${client_libraries})
       foreach(client_library2 ${client_libraries})
@@ -280,30 +286,30 @@ if(BUILD_TESTING)
     endforeach()
   endmacro()
 
-  # publisher combined with a subscriber
+  # # publisher combined with a subscriber
   custom_executable(test_publisher_subscriber_cpp
     "test/test_publisher_subscriber.cpp")
-  # subcription valid data
+  # # subcription valid data
   custom_executable(test_subscription_valid_data_cpp
     "test/test_subscription_valid_data.cpp")
-  # executables publisher / subscriber
+  # # executables publisher / subscriber
   custom_executable(test_publisher_cpp
     "test/test_publisher.cpp")
   custom_executable(test_subscriber_cpp
     "test/test_subscriber.cpp")
-  # executables requester / replier
-  custom_executable(test_requester_cpp
-    "test/test_requester.cpp")
-  custom_executable(test_replier_cpp
-    "test/test_replier.cpp")
+  # # executables requester / replier
+  # custom_executable(test_requester_cpp
+  #   "test/test_requester.cpp")
+  # custom_executable(test_replier_cpp
+  #   "test/test_replier.cpp")
 
   macro(targets)
-    custom_test_c(test_messages_c
-      "test/test_messages_c.cpp")
+    # custom_test_c(test_messages_c
+    #   "test/test_messages_c.cpp")
 
     # publisher combined with a subscriber
     custom_test(test_publisher_subscriber_cpp TRUE)
-    # subcription valid data
+    # # subcription valid data
     custom_test(test_subscription_valid_data_cpp FALSE)
 
     set(rmw_implementation1 "${rmw_implementation}")
@@ -321,8 +327,5 @@ if(BUILD_TESTING)
 
   call_for_each_rmw_implementation(targets)
 endif()  # BUILD_TESTING
-
-install(FILES test/__init__.py test/message_fixtures.py
-  DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}")
 
 ament_auto_package()
